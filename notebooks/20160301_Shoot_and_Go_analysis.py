@@ -14,7 +14,7 @@
 
 # ## Notes
 # 
-# * Reliability: $REL = m/q$ where $q$ is number of successful runs and $m$ is total number of runs, $REL \in [0, 1]$
+# * Reliability: $REL = m/q$ where $m$ is number of successful runs and $q$ is total number of runs, $REL \in [0, 1]$
 # * Mean Number of objective function Evaluations: $MNE = \frac{1}{m} \sum_{i=1}^m neval_i$
 # * Feoktistov criterion: $FEO = MNE/REL$
 # 
