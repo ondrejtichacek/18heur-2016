@@ -94,6 +94,6 @@ print(heur.search())
 
 # # Excercises:
 # 
-# 1. Implement Grid TSP on your own
-# 1. Test on different dimensions
-# 1. Implement your own objective function
+# 1. **Implement Grid TSP on your own**
+# 1. Can you improve FEO using any **better random point generator**?
+# 1. Can you improve FEO using any **better neighbourhood generator**?
