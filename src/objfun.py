@@ -11,6 +11,9 @@ class ObjFun:
     def get_fstar(self):
         return self.fstar
 
+    def get_bounds(self):
+        return [self.a, self.b]
+
     def generate_point(self):
         raise NotImplementedError("Objective function must implement random point generation")
 
