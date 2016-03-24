@@ -114,9 +114,9 @@ class FSA:
         return np.round(x_new_corrected)
 
     def search(self):
-        x = self.of.generate_point()
-        f_x = self.evaluate(x)
         try:
+            x = self.of.generate_point()
+            f_x = self.evaluate(x)
             while True:
                 k = self.neval
                 T0 = self.T0
