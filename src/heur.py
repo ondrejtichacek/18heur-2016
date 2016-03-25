@@ -105,7 +105,7 @@ class FSA(Heuristic):
         a = self.a
         b = self.b
         x_new_corrected = np.minimum(np.maximum(x_new, self.a), self.b)
-        return np.round(x_new_corrected)
+        return np.array(np.round(x_new_corrected), dtype=int)
 
     def search(self):
         try:
