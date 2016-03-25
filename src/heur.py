@@ -9,16 +9,10 @@ class StopCriterion(Exception):
         return repr(self.value)
 
 
-class ShootAndGo:
+class Heuristic:
 
-    def __init__(self, of, maxeval, hmax=np.inf):
-        self.of = of
-        self.maxeval = maxeval
-        self.fstar = self.of.get_fstar()  # local copy of obj. fun. fstar
-        self.best_y = np.inf  # we will MINIMIZE the obj. fun. (!)
-        self.best_x = None
-        self.neval = 0
-        self.hmax = hmax
+    def __init__(self, of, maxeval):
+        raise NotImplementedError("Heuristic must implement an initialization")
 
     def evaluate(self, x):
         y = self.of.evaluate(x)
@@ -31,6 +25,25 @@ class ShootAndGo:
         if self.neval == self.maxeval:
             raise StopCriterion('Exhausted maximum allowed number of evaluations')
         return y
+
+    def report_end(self):
+        return {
+            'best_y': self.best_y,
+            'best_x': self.best_x,
+            'neval': self.neval if self.best_y <= self.fstar else np.inf
+        }
+
+
+class ShootAndGo(Heuristic):
+
+    def __init__(self, of, maxeval, hmax=np.inf):
+        self.of = of
+        self.maxeval = maxeval
+        self.fstar = self.of.get_fstar()  # local copy of obj. fun. fstar
+        self.best_y = np.inf  # we will MINIMIZE the obj. fun. (!)
+        self.best_x = None
+        self.neval = 0
+        self.hmax = hmax
 
     def steepest_descent(self, x):
         # Steepest (Hill) Descent beginning in x
@@ -66,15 +79,8 @@ class ShootAndGo:
         except:
             raise
 
-    def report_end(self):
-        return {
-            'best_y': self.best_y,
-            'best_x': self.best_x,
-            'neval': self.neval if self.best_y <= self.fstar else np.inf
-        }
 
-
-class FSA:
+class FSA(Heuristic):
 
     def __init__(self, of, maxeval, T0, n0, alpha, r):
         self.of = of
@@ -88,18 +94,6 @@ class FSA:
         self.n0 = n0
         self.alpha = alpha
         self.r = r
-
-    def evaluate(self, x):
-        y = self.of.evaluate(x)
-        self.neval += 1
-        if y < self.best_y:
-            self.best_y = y
-            self.best_x = x
-        if y <= self.fstar:
-            raise StopCriterion('Found solution with desired fstar value')
-        if self.neval == self.maxeval:
-            raise StopCriterion('Exhausted maximum allowed number of evaluations')
-        return y
 
     def mutate(self, x):
         # Discrete Cauchy mutation
@@ -137,9 +131,3 @@ class FSA:
         except:
             raise
 
-    def report_end(self):
-        return {
-            'best_y': self.best_y,
-            'best_x': self.best_x,
-            'neval': self.neval if self.best_y <= self.fstar else np.inf
-        }
