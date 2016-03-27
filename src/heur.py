@@ -12,7 +12,14 @@ class StopCriterion(Exception):
 class Heuristic:
 
     def __init__(self, of, maxeval):
-        raise NotImplementedError("Heuristic must implement an initialization")
+        self.of = of
+        self.maxeval = maxeval
+        self.fstar = of.get_fstar()  # local copy of obj. fun. fstar
+        [self.a, self.b] = of.get_bounds()  # local copy of obj. fun. domain bounds
+        self.best_y = np.inf
+        self.best_x = None
+        self.neval = 0
+        self.step_data = None
 
     def evaluate(self, x):
         y = self.of.evaluate(x)
@@ -26,23 +33,23 @@ class Heuristic:
             raise StopCriterion('Exhausted maximum allowed number of evaluations')
         return y
 
+    def append_log(self, step, params):
+        for param in params:
+            self.step_data[param][step] = params[param]
+
     def report_end(self):
         return {
             'best_y': self.best_y,
             'best_x': self.best_x,
-            'neval': self.neval if self.best_y <= self.fstar else np.inf
+            'neval': self.neval if self.best_y <= self.fstar else np.inf,
+            'step_data': self.step_data
         }
 
 
 class ShootAndGo(Heuristic):
 
     def __init__(self, of, maxeval, hmax=np.inf):
-        self.of = of
-        self.maxeval = maxeval
-        self.fstar = self.of.get_fstar()  # local copy of obj. fun. fstar
-        self.best_y = np.inf  # we will MINIMIZE the obj. fun. (!)
-        self.best_x = None
-        self.neval = 0
+        Heuristic.__init__(self, of, maxeval)
         self.hmax = hmax
 
     def steepest_descent(self, x):
@@ -83,17 +90,20 @@ class ShootAndGo(Heuristic):
 class FSA(Heuristic):
 
     def __init__(self, of, maxeval, T0, n0, alpha, r):
-        self.of = of
-        self.maxeval = maxeval
-        self.fstar = self.of.get_fstar()  # local copy of obj. fun. fstar
-        [self.a, self.b] = self.of.get_bounds()  # local copy of obj. fun. domain bounds
-        self.best_y = np.inf
-        self.best_x = None
-        self.neval = 0
+        Heuristic.__init__(self, of, maxeval)
+
         self.T0 = T0
         self.n0 = n0
         self.alpha = alpha
         self.r = r
+        self.step_data = {
+            'T': np.empty(maxeval)*np.nan,
+            'mut_size': np.empty(maxeval)*np.nan,
+            'x': np.zeros(maxeval, dtype=int)*np.nan,
+            'f_x': np.empty(maxeval)*np.nan,
+            'y': np.zeros(maxeval, dtype=int)*np.nan,
+            'f_y': np.empty(maxeval)*np.nan
+        }
 
     def mutate(self, x):
         # Discrete Cauchy mutation
@@ -111,6 +121,7 @@ class FSA(Heuristic):
         try:
             x = self.of.generate_point()
             f_x = self.evaluate(x)
+            Heuristic.append_log(self, 0, {'x': x, 'f_x': f_x})
             while True:
                 k = self.neval
                 T0 = self.T0
@@ -118,6 +129,7 @@ class FSA(Heuristic):
                 alpha = self.alpha
 
                 y = self.mutate(x)
+                Heuristic.append_log(self, k, {'x': x, 'f_x': f_x, 'mut_size': np.linalg.norm(x-y), 'y': y})
                 f_y = self.evaluate(y)
 
                 T = T0/(1+(k/n0)**alpha) if alpha > 0 else T0*np.exp(-(k/n0)**-alpha)
@@ -125,6 +137,7 @@ class FSA(Heuristic):
                 if np.random.uniform() < 1/2 + np.arctan(s)/np.pi:
                     x = y
                     f_x = f_y
+                Heuristic.append_log(self, k, {'T': T})
 
         except StopCriterion:
             return self.report_end()
