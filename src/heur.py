@@ -106,14 +106,12 @@ class FSA(Heuristic):
         }
 
     def mutate(self, x):
-        # Discrete Cauchy mutation
+        # Discrete Cauchy mutation (TO BE GENERALIZED!)
         n = np.size(x)
         u = np.random.uniform(low=0.0, high=1.0, size=n)
         r = self.r
         x_new = x + r*np.tan(np.pi * (u-1/2))
 
-        a = self.a
-        b = self.b
         x_new_corrected = np.minimum(np.maximum(x_new, self.a), self.b)
         return np.array(np.round(x_new_corrected), dtype=int)
 
@@ -144,3 +142,100 @@ class FSA(Heuristic):
         except:
             raise
 
+
+class GO(Heuristic):
+
+    def __init__(self, of, maxeval, n, m, t_sel1, t_sel2, r, co_m):
+        Heuristic.__init__(self, of, maxeval)
+
+        assert m > n, 'M should be larger than N'
+        self.n = n  # population size
+        self.m = m  # working population size
+        self.t_sel1 = t_sel1  # first selection temperature
+        self.t_sel2 = t_sel2  # second selection temperature
+        self.r = r  # mutation radius
+        self.co_m = co_m  # number of crossover points    m=m+1  # m = number of crossover points
+
+    @staticmethod
+    def sort_pop(pop_x, pop_f):
+        ixs = np.argsort(pop_f)
+        pop_x = pop_x[ixs]
+        pop_f = pop_f[ixs]
+        return [pop_x, pop_f]
+
+    @staticmethod
+    def rank_select(temp, n_max):
+        u = np.random.uniform(low=0.0, high=1.0, size=1)
+        ix = np.minimum(np.ceil(-temp*np.log(u)), n_max)-1
+        return ix.astype(int)
+
+    def mutate(self, x):
+        # Discrete Cauchy mutation (TO BE GENERALIZED!)
+        n = np.size(x)
+        u = np.random.uniform(low=0.0, high=1.0, size=n)
+        r = self.r
+        x_new = x + r*np.tan(np.pi * (u-1/2))
+
+        x_new_corrected = np.minimum(np.maximum(x_new, self.a), self.b)
+        return np.array(np.round(x_new_corrected), dtype=int)
+
+    def crossover(self, x, y):
+        m = self.co_m+1  # m = number of crossover points
+        n = np.size(x)
+        z = x*0
+        k = 0
+        p = np.ceil(n/m).astype(int)
+        for i in np.arange(1, m+1):
+            ix_from = k
+            ix_to = np.minimum(k+p, n)
+            z[ix_from:ix_to] = x[ix_from:ix_to] if np.mod(i, 2) == 1 else y[ix_from:ix_to]
+            k += p
+        return z
+
+    def search(self):
+        try:
+            # Initialization:
+            pop_x = np.zeros([self.n, np.size(self.a)], dtype=int)  # population solution vectors
+            pop_f = np.zeros(self.n)  # population fitness (objective) function values
+            # a.) generate the population
+            for i in np.arange(self.n):
+                x = self.of.generate_point()
+                pop_x[i, :] = x
+                pop_f[i] = self.evaluate(x)
+
+            # b.) sort according to fitness function
+            [pop_x, pop_f] = self.sort_pop(pop_x, pop_f)
+
+            # Evolution iteration
+            while True:
+                # 1.) generate the working population
+                work_pop_x = np.zeros([self.m, np.size(self.a)], dtype=int)
+                work_pop_f = np.zeros(self.m)
+                for i in np.arange(self.m):
+                    par_a_ix = self.rank_select(temp=self.t_sel1, n_max=self.n)  # select first parent
+                    par_b_ix = self.rank_select(temp=self.t_sel1, n_max=self.n)  # select second parent (uniqueness not guaranteed!)
+                    par_a = pop_x[par_a_ix, :][0]
+                    par_b = pop_x[par_b_ix, :][0]
+                    z = self.crossover(par_a, par_b)
+                    z_mut = self.mutate(z)
+                    work_pop_x[i, :] = z_mut
+                    work_pop_f[i] = self.evaluate(z_mut)
+
+                # 2.) sort working population according to fitness function
+                [work_pop_x, work_pop_f] = self.sort_pop(work_pop_x, work_pop_f)
+
+                # 3.) select the new population
+                ixs_not_selected = np.ones(self.m, dtype=bool)  # this mask will prevent us from selecting duplicates
+                for i in np.arange(self.n):
+                    sel_ix = self.rank_select(temp=self.t_sel2, n_max=np.sum(ixs_not_selected))
+                    pop_x[i, :] = work_pop_x[ixs_not_selected][sel_ix, :]
+                    pop_f[i] = work_pop_f[ixs_not_selected][sel_ix]
+                    ixs_not_selected[sel_ix] = False
+
+                # 4.) sort according to fitness function
+                [pop_x, pop_f] = self.sort_pop(pop_x, pop_f)
+
+        except StopCriterion:
+            return self.report_end()
+        except:
+            raise
