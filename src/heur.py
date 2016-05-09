@@ -26,7 +26,7 @@ class Heuristic:
         self.neval += 1
         if y < self.best_y:
             self.best_y = y
-            self.best_x = x
+            self.best_x = np.copy(x)
         if y <= self.fstar:
             raise StopCriterion('Found solution with desired fstar value')
         if self.neval == self.maxeval:
